@@ -1,13 +1,7 @@
-create database ac1
+create database ac1Bancos
 
-use ac1
+use ac1Bancos
 
-
-create table carros(
-	placa char(7) primary key,
-	modelo varchar(100),
-	ano date
-)
 
 create table motoristas(
 	motoristaId int primary key identity(1,1),
@@ -16,12 +10,20 @@ create table motoristas(
 	pontosCnh int
 )
 
+create table carros(
+	placa char(7) primary key,
+	motoristaId int,
+	modelo varchar(100)
+	constraint fk_motoristas_carros foreign key (motoristaId) references motoristas(motoristaId)
+)
+
+
 create table multas(
 	multasId int primary key identity(1,1),
-	placaCarro char(7),
+	motoristaId int,
 	multaData date,
 	pontos int
-	constraint fk_carros_multas foreign key (placaCarro) references carros(placa)
+	constraint fk_motorista_multas foreign key (motoristaId) references motoristas(motoristaId),
 )
 
 
@@ -37,11 +39,11 @@ create table prontuarios(
 
 create procedure inserirCarro
 @placa char(7),
-@modelo varchar(100),
-@ano date
+@motoristaId int,
+@modelo varchar(100)
 as
-insert into carros(placa, modelo)
-values(@placa, @modelo, @ano)
+insert into carros(placa, motoristaId, modelo)
+values(@placa, @motoristaId, @modelo)
 select * from carros
 
 create procedure inserirMotorista
@@ -54,12 +56,12 @@ values(@nome, @cnh, @pontosCnh)
 select * from motoristas
 
 create procedure inserirMulta
-@placaCarro char(7),
+@motoristaId int,
 @multaData date,
 @pontos int
 as
-insert into multas(placaCarro, multaData, pontos)
-values(@placaCarro, @multaData, @pontos)
+insert into multas(motoristaId, multaData, pontos)
+values(@motoristaId, @multaData, @pontos)
 select * from multas
 
 create procedure inserirProntuario
@@ -72,17 +74,43 @@ values(@motoristaId, @multasId, @dataAssociacão)
 select* from prontuarios
 
 
-
 create trigger tgr_novaMulta
 on multas for insert
 as
 begin
 declare
 	@multasId int,
-	@placaCarro char(7),
+	@motoristaId int,
 	@multaData date,
 	@pontos int
-	select @multasId = multasId, @placaCarro = placaCarro, @multaData = multaData, @pontos = pontos from inserted
-	update prontuarios set multasId = @multasId, dataAssociacão = @multaData
-	where 
-	
+	select @multasId = multasId ,@motoristaId = motoristaId, @multaData = multaData, @pontos = pontos from inserted
+	exec inserirProntuario @motoristaId, @multasId, @multaData
+	update motoristas set pontosCnh = pontosCnh + @pontos
+	where motoristaId = @motoristaId
+end
+
+create procedure todosMotoristas
+as
+select motoristas.nome, multas.multasId, motoristas.pontosCnh from motoristas
+inner join multas on motoristas.motoristaId = multas.motoristaId
+
+create procedure umMotorista
+@motoristaId int
+as
+select motoristas.nome, multas.multasId, motoristas.pontosCnh from motoristas
+inner join multas on motoristas.motoristaId = multas.motoristaId
+where motoristas.motoristaId = @motoristaId
+
+create procedure PontosMotorista
+@motoristaId int
+as
+select motoristas.nome, motoristas.pontosCnh from motoristas
+where motoristas.motoristaId = @motoristaId
+
+exec inserirCarro 'abc9876', 2, 'argo'
+
+exec inserirMotorista 'sergio', 12456658, 0
+
+exec inserirMulta 1, '2020-01-30', 10
+
+exec todosMotoristas 
